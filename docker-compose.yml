@@ -1,10 +1,16 @@
+# ===========================================
+# GIFTMAKEBOT BASE DOCKER COMPOSE
+# ===========================================
+# Base configuration for all environments
+# Use with environment-specific overrides:
+# - Development: docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+# - Production:  docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
 services:
 
   health:
     build: ./services/health
     container_name: ${HEALTH_CONTAINER_NAME:-giftmakebot_health}
-    volumes:
-      - ./services/health:/app
     depends_on:
       - redis
       - rabbitmq
@@ -15,9 +21,9 @@ services:
     environment:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - REDIS_HOST=redis
-      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - APP_ENV=${APP_ENV:-production}
+      - APP_ENV=${APP_ENV:-development}
       - DEBUG=${DEBUG:-false}
 
   nginx:
@@ -72,8 +78,6 @@ services:
   telegram-bot:
     build: ./services/telegram-bot
     container_name: ${TELEGRAM_BOT_CONTAINER_NAME:-giftmakebot_telegram}
-    volumes:
-      - ./services/telegram-bot:/app
     depends_on:
       - redis
     networks:
@@ -85,7 +89,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=${REDIS_PORT:-6379}
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-      - APP_ENV=${APP_ENV:-production}
+      - APP_ENV=${APP_ENV:-development}
       - DEBUG=${DEBUG:-false}
 
   api-gateway:
@@ -95,7 +99,7 @@ services:
       - giftmakebot_network
     restart: ${RESTART_POLICY:-unless-stopped}
     environment:
-      - APP_ENV=${APP_ENV:-production}
+      - APP_ENV=${APP_ENV:-development}
       - DEBUG=${DEBUG:-false}
 
   web_app:

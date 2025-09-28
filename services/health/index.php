@@ -330,6 +330,7 @@ class HealthMonitor {
     }
     
     private function formatUptime($seconds) {
+        $seconds = intval($seconds); // Convert to int to avoid float precision warnings
         $days = intval(floor($seconds / 86400));
         $hours = intval(floor(($seconds % 86400) / 3600));
         $minutes = intval(floor(($seconds % 3600) / 60));
