@@ -1,0 +1,71 @@
+# IDE
+.idea/
+.vscode/
+
+# PHP
+vendor/
+composer.phar
+composer.lock
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Logs
+storage/logs/*.log
+*.log
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Cache
+storage/cache/
+cache/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# OS
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Node.js (if using frontend tools)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build files
+dist/
+build/
+
+# Docker
+.docker/
+
+# Uploads
+uploads/
+storage/uploads/
+
+# Test coverage
+coverage/
+.coverage
+
+# PHPUnit
+.phpunit.result.cache
+
+# Backup files
+*.backup
+*.bak
+*.swp
+*.swo
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
