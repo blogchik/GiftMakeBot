@@ -7,6 +7,7 @@ services:
       - ./services/health:/app
     depends_on:
       - redis
+      - rabbitmq
       - telegram-bot
     networks:
       - giftmakebot_network
@@ -50,6 +51,24 @@ services:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
     command: redis-server ${REDIS_COMMAND_OPTIONS:---appendonly yes} --requirepass ${REDIS_PASSWORD}
 
+  rabbitmq:
+    image: ${RABBITMQ_IMAGE:-rabbitmq:3-management-alpine}
+    container_name: ${RABBITMQ_CONTAINER_NAME:-giftmakebot_rabbitmq}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"           # AMQP port
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"  # Management UI port
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - rabbitmq_logs:/var/log/rabbitmq
+    networks:
+      - giftmakebot_network
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER:-admin}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-admin123}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_ERLANG_COOKIE=${RABBITMQ_ERLANG_COOKIE:-rabbitmq-cluster-cookie}
+
   telegram-bot:
     build: ./services/telegram-bot
     container_name: ${TELEGRAM_BOT_CONTAINER_NAME:-giftmakebot_telegram}
@@ -69,12 +88,37 @@ services:
       - APP_ENV=${APP_ENV:-production}
       - DEBUG=${DEBUG:-false}
 
+  api-gateway:
+    build: ./services/api-gateway
+    container_name: ${API_GATEWAY_CONTAINER_NAME:-giftmakebot_api_gateway}
+    networks:
+      - giftmakebot_network
+    restart: ${RESTART_POLICY:-unless-stopped}
+    environment:
+      - APP_ENV=${APP_ENV:-production}
+      - DEBUG=${DEBUG:-false}
+
+  web_app:
+    build: ./services/web_app
+    container_name: ${WEB_APP_CONTAINER_NAME:-giftmakebot_webapp}
+    ports:
+      - "${WEB_APP_PORT:-3000}:80"
+    depends_on:
+      - api-gateway
+    networks:
+      - giftmakebot_network
+    restart: ${RESTART_POLICY:-unless-stopped}
+
 volumes:
   mysql_data:
     driver: local
   redis_data:
     driver: local
+  rabbitmq_data:
+    driver: local
+  rabbitmq_logs:
+    driver: local
 
 networks:
   giftmakebot_network:
-    driver: bridge
+    driver: ${NETWORK_DRIVER:-bridge}

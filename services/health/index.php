@@ -10,6 +10,53 @@ if (getenv('DEBUG') === 'true') {
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+header('Access-Control-Allow-Headers: Content-Type, Authorization');
+
+// Handle preflight OPTIONS request
+if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    http_response_code(200);
+    exit;
+}
+
+// Simple routing
+$request_uri = $_SERVER['REQUEST_URI'];
+$path = parse_url($request_uri, PHP_URL_PATH);
+
+// API routes
+if (strpos($path, '/api/v1/health') === 0) {
+    handleHealthAPI();
+    exit;
+}
+
+function handleHealthAPI() {
+    $method = $_SERVER['REQUEST_METHOD'];
+    
+    if ($method !== 'GET') {
+        http_response_code(405);
+        echo json_encode(['error' => 'Method not allowed']);
+        return;
+    }
+    
+    $healthMonitor = new HealthMonitor();
+    $healthData = $healthMonitor->getHealthData();
+    
+    http_response_code(200);
+    echo json_encode([
+        'success' => true,
+        'timestamp' => date('Y-m-d\TH:i:s\Z'),
+        'status' => $healthData['overall_status'],
+        'data' => [
+            'services' => $healthData['services'],
+            'summary' => [
+                'total_services' => count($healthData['services']),
+                'healthy_count' => count(array_filter($healthData['services'], function($s) { return $s['status'] === 'healthy'; })),
+                'unhealthy_count' => count(array_filter($healthData['services'], function($s) { return $s['status'] === 'unhealthy'; })),
+                'warning_count' => count(array_filter($healthData['services'], function($s) { return $s['status'] === 'warning'; }))
+            ]
+        ]
+    ]);
+}
 
 class HealthMonitor {
     private $services = [];
@@ -23,7 +70,10 @@ class HealthMonitor {
         $this->services = [
             'nginx' => $this->checkNginx(),
             'redis' => $this->checkRedis(),
+            'rabbitmq' => $this->checkRabbitMQ(),
             'telegram-bot' => $this->checkTelegramBot(),
+            'api-gateway' => $this->checkApiGateway(),
+            'web_app' => $this->checkWebApp(),
             'system' => $this->getSystemInfo()
         ];
         
@@ -306,6 +356,299 @@ class HealthMonitor {
         ];
     }
     
+    public function getHealthData() {
+        return [
+            'overall_status' => $this->overallStatus,
+            'services' => $this->services,
+            'timestamp' => date('Y-m-d\TH:i:s\Z')
+        ];
+    }
+    
+    private function checkApiGateway() {
+        try {
+            $api_gateway_host = 'api-gateway';
+            $api_gateway_port = 9000;
+            
+            // Check if API Gateway container is running (port check)
+            $connection = @fsockopen($api_gateway_host, $api_gateway_port, $errno, $errstr, 3);
+            
+            if (!$connection) {
+                return [
+                    'status' => 'unhealthy',
+                    'message' => "Cannot connect to API Gateway PHP-FPM: $errstr",
+                    'details' => [
+                        'host' => $api_gateway_host,
+                        'port' => $api_gateway_port,
+                        'error_code' => $errno,
+                        'error_message' => $errstr
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            fclose($connection);
+            
+            // Try to make HTTP request to API Gateway through nginx
+            $api_url = 'http://nginx/api/v1/users';
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => 5,
+                    'header' => "Accept: application/json\r\n"
+                ]
+            ]);
+            
+            $response = @file_get_contents($api_url, false, $context);
+            
+            if ($response === false) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'API Gateway PHP-FPM is running but API endpoint not responding',
+                    'details' => [
+                        'host' => $api_gateway_host,
+                        'port' => $api_gateway_port,
+                        'php_fpm' => 'running',
+                        'api_endpoint' => 'unreachable',
+                        'url_tested' => $api_url
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            $data = json_decode($response, true);
+            
+            if (json_last_error() === JSON_ERROR_NONE && isset($data['success'])) {
+                return [
+                    'status' => 'healthy',
+                    'message' => 'API Gateway is running and serving API requests',
+                    'details' => [
+                        'host' => $api_gateway_host,
+                        'port' => $api_gateway_port,
+                        'php_fpm' => 'running',
+                        'api_endpoint' => 'working',
+                        'response_format' => 'valid_json',
+                        'users_count' => count($data['data'] ?? [])
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            return [
+                'status' => 'warning',
+                'message' => 'API Gateway responding but with invalid format',
+                'details' => [
+                    'host' => $api_gateway_host,
+                    'port' => $api_gateway_port,
+                    'php_fpm' => 'running',
+                    'response_status' => 'invalid_json'
+                ],
+                'last_checked' => date('Y-m-d H:i:s')
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Error checking API Gateway: ' . $e->getMessage(),
+                'details' => ['exception' => $e->getMessage()],
+                'last_checked' => date('Y-m-d H:i:s')
+            ];
+        }
+    }
+    
+    private function checkWebApp() {
+        try {
+            $web_app_host = 'web_app';
+            $web_app_port = 80;
+            
+            // Check if Web App container is running (port check)
+            $connection = @fsockopen($web_app_host, $web_app_port, $errno, $errstr, 3);
+            
+            if (!$connection) {
+                return [
+                    'status' => 'unhealthy',
+                    'message' => "Cannot connect to Web App: $errstr",
+                    'details' => [
+                        'host' => $web_app_host,
+                        'port' => $web_app_port,
+                        'error_code' => $errno,
+                        'error_message' => $errstr
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            fclose($connection);
+            
+            // Try to make HTTP request to Web App through nginx
+            $web_url = 'http://nginx/';
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'HEAD',
+                    'timeout' => 5
+                ]
+            ]);
+            
+            $headers = @get_headers($web_url, 1, $context);
+            
+            if ($headers === false) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'Web App container is running but not accessible through nginx',
+                    'details' => [
+                        'host' => $web_app_host,
+                        'port' => $web_app_port,
+                        'nginx_proxy' => 'unreachable',
+                        'url_tested' => $web_url
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            $status_line = $headers[0] ?? '';
+            $is_200 = strpos($status_line, '200') !== false;
+            
+            if ($is_200) {
+                return [
+                    'status' => 'healthy',
+                    'message' => 'Web App is running and serving React application',
+                    'details' => [
+                        'host' => $web_app_host,
+                        'port' => $web_app_port,
+                        'nginx_proxy' => 'working',
+                        'http_status' => '200 OK',
+                        'content_type' => $headers['Content-Type'] ?? 'text/html',
+                        'server' => $headers['Server'] ?? 'nginx'
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            return [
+                'status' => 'warning',
+                'message' => 'Web App responding but with non-200 status',
+                'details' => [
+                    'host' => $web_app_host,
+                    'port' => $web_app_port,
+                    'http_status' => $status_line
+                ],
+                'last_checked' => date('Y-m-d H:i:s')
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Error checking Web App: ' . $e->getMessage(),
+                'details' => ['exception' => $e->getMessage()],
+                'last_checked' => date('Y-m-d H:i:s')
+            ];
+        }
+    }
+
+    private function checkRabbitMQ() {
+        try {
+            $rabbitmq_host = 'rabbitmq';
+            $rabbitmq_port = 5672;
+            $rabbitmq_mgmt_port = 15672;
+            
+            // Check if RabbitMQ AMQP port is accessible
+            $connection = @fsockopen($rabbitmq_host, $rabbitmq_port, $errno, $errstr, 3);
+            
+            if (!$connection) {
+                return [
+                    'status' => 'unhealthy',
+                    'message' => "Cannot connect to RabbitMQ AMQP port: $errstr",
+                    'details' => [
+                        'host' => $rabbitmq_host,
+                        'amqp_port' => $rabbitmq_port,
+                        'management_port' => $rabbitmq_mgmt_port,
+                        'error_code' => $errno,
+                        'error_message' => $errstr
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            fclose($connection);
+            
+            // Check RabbitMQ Management API
+            $mgmt_connection = @fsockopen($rabbitmq_host, $rabbitmq_mgmt_port, $mgmt_errno, $mgmt_errstr, 3);
+            
+            if (!$mgmt_connection) {
+                return [
+                    'status' => 'warning',
+                    'message' => 'RabbitMQ AMQP is running but Management UI is not accessible',
+                    'details' => [
+                        'host' => $rabbitmq_host,
+                        'amqp_port' => $rabbitmq_port,
+                        'amqp_status' => 'accessible',
+                        'management_port' => $rabbitmq_mgmt_port,
+                        'management_status' => 'unreachable',
+                        'error' => $mgmt_errstr
+                    ],
+                    'last_checked' => date('Y-m-d H:i:s')
+                ];
+            }
+            
+            fclose($mgmt_connection);
+            
+            // Try to get basic info from Management API
+            $api_url = "http://$rabbitmq_host:$rabbitmq_mgmt_port/api/overview";
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'GET',
+                    'timeout' => 5,
+                    'header' => "Authorization: Basic " . base64_encode('giftmakebot_admin:GiftMakeRabbitMQ@2025') . "\r\n"
+                ]
+            ]);
+            
+            $response = @file_get_contents($api_url, false, $context);
+            
+            if ($response !== false) {
+                $data = json_decode($response, true);
+                
+                if (json_last_error() === JSON_ERROR_NONE && isset($data['rabbitmq_version'])) {
+                    return [
+                        'status' => 'healthy',
+                        'message' => 'RabbitMQ is running with Management API accessible',
+                        'details' => [
+                            'host' => $rabbitmq_host,
+                            'amqp_port' => $rabbitmq_port,
+                            'management_port' => $rabbitmq_mgmt_port,
+                            'amqp_status' => 'accessible',
+                            'management_status' => 'accessible',
+                            'rabbitmq_version' => $data['rabbitmq_version'] ?? 'unknown',
+                            'erlang_version' => $data['erlang_version'] ?? 'unknown',
+                            'node_name' => $data['node'] ?? 'unknown'
+                        ],
+                        'last_checked' => date('Y-m-d H:i:s')
+                    ];
+                }
+            }
+            
+            return [
+                'status' => 'healthy',
+                'message' => 'RabbitMQ ports are accessible',
+                'details' => [
+                    'host' => $rabbitmq_host,
+                    'amqp_port' => $rabbitmq_port,
+                    'management_port' => $rabbitmq_mgmt_port,
+                    'amqp_status' => 'accessible',
+                    'management_status' => 'accessible',
+                    'api_response' => 'no_data'
+                ],
+                'last_checked' => date('Y-m-d H:i:s')
+            ];
+            
+        } catch (Exception $e) {
+            return [
+                'status' => 'error',
+                'message' => 'Error checking RabbitMQ: ' . $e->getMessage(),
+                'details' => ['exception' => $e->getMessage()],
+                'last_checked' => date('Y-m-d H:i:s')
+            ];
+        }
+    }
+
     private function getSummary() {
         $healthy = 0;
         $warning = 0;
