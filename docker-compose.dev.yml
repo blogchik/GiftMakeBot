@@ -58,7 +58,6 @@ services:
     build:
       context: ./services/telegram-bot
       dockerfile: Dockerfile
-      target: development
     volumes:
       # Mount source code for hot reload
       - ./services/telegram-bot:/app:cached
@@ -75,7 +74,6 @@ services:
     build:
       context: ./services/api-gateway
       dockerfile: Dockerfile
-      target: development
     volumes:
       # Mount source code for hot reload
       - ./services/api-gateway:/app:cached
@@ -92,7 +90,6 @@ services:
     build:
       context: ./services/health
       dockerfile: Dockerfile
-      target: development
     volumes:
       # Mount source code for hot reload
       - ./services/health:/app:cached
@@ -108,7 +105,6 @@ services:
     build:
       context: ./services/web_app
       dockerfile: Dockerfile
-      target: development
     volumes:
       # Mount source code for hot reload
       - ./services/web_app:/app:cached
