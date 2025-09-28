@@ -68,4 +68,4 @@ coverage/
 pids
 *.pid
 *.seed
-*.pid.lock
+*.pid.lockwiki/

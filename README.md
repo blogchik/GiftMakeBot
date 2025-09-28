@@ -6,8 +6,9 @@
 [![React](https://img.shields.io/badge/React-18.0+-61DAFB.svg)](https://reactjs.org/)
 [![License](htt## 📚 Documentation
 
-- **[🚀 Deployment Guide](docs/DEPLOYMENT.md)** - Complete multi-environment setup
-- **[🔧 Service Development Guide](docs/SERVICE_DEVELOPMENT_GUIDE.md)** - Adding new services
+- **[🚀 Deployment Guide](https://github.com/blogchik/GiftMakeBot/wiki/Deployment-Guide)** - Complete multi-environment setup
+- **[🔧 Service Development Guide](https://github.com/blogchik/GiftMakeBot/wiki/Service-Development-Guide)** - Adding new services
+- **[📚 Complete Wiki](https://github.com/blogchik/GiftMakeBot/wiki)** - All documentation in one place
 - **[🏥 Health API](services/health/index.php)** - Health monitoring details/img.shields.io/badge/License-Apache%202.0-green.svg)](LICENSE)
 
 A robust, scalable Telegram bot platform built with Docker microservices architecture. Supports both **development** and **production** environments with comprehensive monitoring, health checks, and enterprise-grade security features.
@@ -505,7 +506,7 @@ This project is licensed under the Apache 2.0 License - see the [LICENSE](LICENS
 
 ### � Ready to Build Something Amazing?
 
-**[🚀 Start Development](#-quick-start-guide)** • **[📚 Read Docs](docs/DEPLOYMENT.md)** • **[💬 Join Discussion](https://github.com/blogchik/GiftMakeBot/discussions)**
+**[🚀 Start Development](#-quick-start-guide)** • **[📚 Read Docs](https://github.com/blogchik/GiftMakeBot/wiki)** • **[💬 Join Discussion](https://github.com/blogchik/GiftMakeBot/discussions)**
 
 Made with ❤️ by Jabborov Abduroziq
 
