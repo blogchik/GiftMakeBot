@@ -50,7 +50,30 @@ services:
           memory: 256M
           cpus: '0.25'
 
-
+  rabbitmq:
+    # Production RabbitMQ with clustering support
+    environment:
+      - RABBITMQ_DEFAULT_USER=${RABBITMQ_USER}
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+      - RABBITMQ_DEFAULT_VHOST=${RABBITMQ_VHOST:-/}
+      - RABBITMQ_ERLANG_COOKIE=${RABBITMQ_ERLANG_COOKIE}
+      - RABBITMQ_VM_MEMORY_HIGH_WATERMARK=0.7
+      - RABBITMQ_DISK_FREE_LIMIT=1GB
+    volumes:
+      - ${RABBITMQ_DATA_VOLUME:-rabbitmq_prod_data}:/var/lib/rabbitmq
+      - ${RABBITMQ_LOGS_VOLUME:-rabbitmq_prod_logs}:/var/log/rabbitmq
+    # Management interface only accessible internally
+    ports:
+      # Only expose management port if needed (comment out for security)
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
 
   telegram-bot:
     # Production bot optimized
@@ -147,6 +170,18 @@ volumes:
       type: none
       o: bind
       device: /opt/giftmakebot/data/redis
+  rabbitmq_prod_data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/giftmakebot/data/rabbitmq
+  rabbitmq_prod_logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/giftmakebot/logs/rabbitmq
 
 # ===========================================
 # PRODUCTION NETWORKS
