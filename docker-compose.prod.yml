@@ -65,7 +65,7 @@ services:
     # Management interface only accessible internally
     ports:
       # Only expose management port if needed (comment out for security)
-      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+      - "localhost:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
     deploy:
       resources:
         limits:
