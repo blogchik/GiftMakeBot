@@ -70,7 +70,6 @@ class HealthMonitor {
         $this->services = [
             'nginx' => $this->checkNginx(),
             'redis' => $this->checkRedis(),
-            'rabbitmq' => $this->checkRabbitMQ(),
             'telegram-bot' => $this->checkTelegramBot(),
             'api-gateway' => $this->checkApiGateway(),
             'web_app' => $this->checkWebApp(),
@@ -539,111 +538,6 @@ class HealthMonitor {
             return [
                 'status' => 'error',
                 'message' => 'Error checking Web App: ' . $e->getMessage(),
-                'details' => ['exception' => $e->getMessage()],
-                'last_checked' => date('Y-m-d H:i:s')
-            ];
-        }
-    }
-
-    private function checkRabbitMQ() {
-        try {
-            $rabbitmq_host = 'rabbitmq';
-            $rabbitmq_port = 5672;
-            $rabbitmq_mgmt_port = 15672;
-            
-            // Check if RabbitMQ AMQP port is accessible
-            $connection = @fsockopen($rabbitmq_host, $rabbitmq_port, $errno, $errstr, 3);
-            
-            if (!$connection) {
-                return [
-                    'status' => 'unhealthy',
-                    'message' => "Cannot connect to RabbitMQ AMQP port: $errstr",
-                    'details' => [
-                        'host' => $rabbitmq_host,
-                        'amqp_port' => $rabbitmq_port,
-                        'management_port' => $rabbitmq_mgmt_port,
-                        'error_code' => $errno,
-                        'error_message' => $errstr
-                    ],
-                    'last_checked' => date('Y-m-d H:i:s')
-                ];
-            }
-            
-            fclose($connection);
-            
-            // Check RabbitMQ Management API
-            $mgmt_connection = @fsockopen($rabbitmq_host, $rabbitmq_mgmt_port, $mgmt_errno, $mgmt_errstr, 3);
-            
-            if (!$mgmt_connection) {
-                return [
-                    'status' => 'warning',
-                    'message' => 'RabbitMQ AMQP is running but Management UI is not accessible',
-                    'details' => [
-                        'host' => $rabbitmq_host,
-                        'amqp_port' => $rabbitmq_port,
-                        'amqp_status' => 'accessible',
-                        'management_port' => $rabbitmq_mgmt_port,
-                        'management_status' => 'unreachable',
-                        'error' => $mgmt_errstr
-                    ],
-                    'last_checked' => date('Y-m-d H:i:s')
-                ];
-            }
-            
-            fclose($mgmt_connection);
-            
-            // Try to get basic info from Management API
-            $api_url = "http://$rabbitmq_host:$rabbitmq_mgmt_port/api/overview";
-            $context = stream_context_create([
-                'http' => [
-                    'method' => 'GET',
-                    'timeout' => 5,
-                    'header' => "Authorization: Basic " . base64_encode('giftmakebot_admin:GiftMakeRabbitMQ@2025') . "\r\n"
-                ]
-            ]);
-            
-            $response = @file_get_contents($api_url, false, $context);
-            
-            if ($response !== false) {
-                $data = json_decode($response, true);
-                
-                if (json_last_error() === JSON_ERROR_NONE && isset($data['rabbitmq_version'])) {
-                    return [
-                        'status' => 'healthy',
-                        'message' => 'RabbitMQ is running with Management API accessible',
-                        'details' => [
-                            'host' => $rabbitmq_host,
-                            'amqp_port' => $rabbitmq_port,
-                            'management_port' => $rabbitmq_mgmt_port,
-                            'amqp_status' => 'accessible',
-                            'management_status' => 'accessible',
-                            'rabbitmq_version' => $data['rabbitmq_version'] ?? 'unknown',
-                            'erlang_version' => $data['erlang_version'] ?? 'unknown',
-                            'node_name' => $data['node'] ?? 'unknown'
-                        ],
-                        'last_checked' => date('Y-m-d H:i:s')
-                    ];
-                }
-            }
-            
-            return [
-                'status' => 'healthy',
-                'message' => 'RabbitMQ ports are accessible',
-                'details' => [
-                    'host' => $rabbitmq_host,
-                    'amqp_port' => $rabbitmq_port,
-                    'management_port' => $rabbitmq_mgmt_port,
-                    'amqp_status' => 'accessible',
-                    'management_status' => 'accessible',
-                    'api_response' => 'no_data'
-                ],
-                'last_checked' => date('Y-m-d H:i:s')
-            ];
-            
-        } catch (Exception $e) {
-            return [
-                'status' => 'error',
-                'message' => 'Error checking RabbitMQ: ' . $e->getMessage(),
                 'details' => ['exception' => $e->getMessage()],
                 'last_checked' => date('Y-m-d H:i:s')
             ];
